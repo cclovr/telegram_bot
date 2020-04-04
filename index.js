@@ -19,34 +19,46 @@ bot.on('message', (ctx) => {
     }).then(res => {
       const merges = res.data
       const donePipelinesMerge = merges.filter(merge => merge.status === 'success')
-      const groupBy = key => array =>
-        array.reduce((objectsByKeyValue, obj) => {
-          const value = obj[key]
-          objectsByKeyValue[value] = (objectsByKeyValue[value] || []).concat(obj)
-          return objectsByKeyValue
-        }, {})
+      if (!donePipelinesMerge.length) {
+        return ctx.reply('Не найдено успешных пайплайнов')
+      } else {
+        const groupBy = key => array =>
+          array.reduce((objectsByKeyValue, obj) => {
+            const value = obj[key]
+            objectsByKeyValue[value] = (objectsByKeyValue[value] || []).concat(obj)
+            return objectsByKeyValue
+          }, {})
 
-      const groupByTitle = groupBy('ref')
-      const groupByRef = groupByTitle(donePipelinesMerge)
-      const arrayObjectPipeline = Object.entries(groupByRef)
-      const l = arrayObjectPipeline.map(obj => {
-        return {
-          title: obj[1][0].ref,
-          link: 'https://www.google.com/'
-        }
-      })
-      const p = []
-      p.push(l)
+        const groupByTitle = groupBy('ref')
+        const groupByRef = groupByTitle(donePipelinesMerge)
+        const arrayObjectPipeline = Object.entries(groupByRef)
+        const l = arrayObjectPipeline.map(obj => {
+          return {
+            title: obj[1][0].ref
+          }
+        })
+        const p = []
+        p.push(l)
 
-      p[0].map(pipeline => {
-        var num = parseInt(pipeline.title.replace(/\D+/g, ''))
-        const result = 'dev.btm.idl.local/BM-' + num + '/index.html'
-        return ctx.reply('<a href="' + `${result}` + `">${pipeline.title}</a>`, { parse_mode: 'HTML' })
-      })
+        p[0].map(pipeline => {
+          const num = pipeline.title.substring(0, pipeline.title.indexOf('/'))
+          const firstWordTask = num.substring(0, num.indexOf('-'))
+          function generateUrl () {
+            if (firstWordTask === 'BM') {
+              return 'dev.btm.idl.local/' + num + '/index.html'
+            } else if (firstWordTask === 'DOF') {
+              return 'doc-dev.telemed.care/' + num + '/analyses'
+            }
+          }
+          const result = generateUrl()
+          return ctx.reply('<a href="' + `${result}` + `">${pipeline.title}</a>`, { parse_mode: 'HTML' })
+        })
+      }
     })
-
-      .catch(e => {
-        console.log('Ошибка ' + e.name + ':' + e.message + '\n' + e.stack)
+      .catch(error => {
+        if (error.toString() === 'Error: Request failed with status code 404') {
+          return ctx.reply('Проект с таким ID не найден')
+        }
       })
   } else {
     ctx.reply('ID должен состоять из цифр')
